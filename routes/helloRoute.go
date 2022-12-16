@@ -4,17 +4,17 @@ import "github.com/anjolaoluwaakindipe/videoapp/utils/logger"
 
 type HelloRoute struct {
 	helloHandler HelloHandler
-	logger logger.Logger
+	logger       logger.Logger
 }
 
 func (hr HelloRoute) Routes() []RouteHandler {
 	hr.logger.Info("Registering Hello Route")
 	routes := []RouteHandler{
-		hr.helloHandler.getHello(),
+		hr.helloHandler.GetHello(),
 	}
 	return routes
 }
 
 func NewHelloRoute(helloHandler HelloHandler, logger logger.Logger) HelloRoute {
-	return HelloRoute{helloHandler: helloHandler, logger: logger};
+	return HelloRoute{helloHandler: helloHandler, logger: logger}
 }
