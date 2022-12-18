@@ -3,7 +3,7 @@ package routes
 import "github.com/anjolaoluwaakindipe/videoapp/utils/logger"
 
 type RoomRoute struct {
-	logger logger.Logger
+	logger      logger.Logger
 	roomHandler RoomHandler
 }
 
@@ -13,13 +13,12 @@ func (rr RoomRoute) Routes() []RouteHandler {
 
 	// room routes slice tor return
 	routes := []RouteHandler{
-		rr.roomHandler.createRoom(),
-		rr.roomHandler.joinRoom(),
+		rr.roomHandler.CreateRoom(),
+		rr.roomHandler.JoinRoom(),
 	}
 
 	return routes
 }
-
 
 func NewRoomRoute(logger logger.Logger, roomHandler RoomHandler) RoomRoute {
 	return RoomRoute{logger: logger, roomHandler: roomHandler}

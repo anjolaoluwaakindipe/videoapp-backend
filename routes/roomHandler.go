@@ -20,7 +20,7 @@ type RoomHandler struct {
 }
 
 // handler: allows a user to create a room
-func (rh RoomHandler) createRoom() RouteHandler {
+func (rh RoomHandler) CreateRoom() RouteHandler {
 	return RouteHandler{
 		Path:    "/room/create",
 		Methods: []string{http.MethodGet, http.MethodOptions},
@@ -31,7 +31,6 @@ func (rh RoomHandler) createRoom() RouteHandler {
 			// log out what room was created
 			rh.logger.Infof("%v", rh.roomService.ShowMap())
 
-			
 			rw.Header().Add("Content-Type", "application/json")
 			rw.Header().Set("Access-Control-Allow-Origin", "*")
 
@@ -41,11 +40,12 @@ func (rh RoomHandler) createRoom() RouteHandler {
 	}
 }
 
+// private method for starting broadcast
 func (rh RoomHandler) _broadcaster(broadcast *chan entities.BroadcastMsg) {
 	for {
 		// wait for broadcast message
 		msg := <-*broadcast
-		
+
 		// broadcast to all other participant except self
 		for _, client := range rh.roomService.ShowMap()[msg.RoomID] {
 			if client.Conn != msg.Client {
@@ -61,7 +61,7 @@ func (rh RoomHandler) _broadcaster(broadcast *chan entities.BroadcastMsg) {
 }
 
 // handler: allows a user to join a room
-func (rh RoomHandler) joinRoom() RouteHandler {
+func (rh RoomHandler) JoinRoom() RouteHandler {
 	return RouteHandler{
 		Path:    "/room/join",
 		Methods: []string{"GET"},
@@ -69,7 +69,7 @@ func (rh RoomHandler) joinRoom() RouteHandler {
 			// get room id from url params
 			roomID := r.URL.Query().Get("roomID")
 
-			// trim whitespace from roomID id: not sure I need to do this 
+			// trim whitespace from roomID id: not sure I need to do this
 			if strings.TrimSpace(roomID) == "" {
 				rh.logger.Infoln("roomID missing in URL Parameeters")
 				err := errs.NewBadRequestError("RoomID query parameter invalid")
@@ -78,7 +78,7 @@ func (rh RoomHandler) joinRoom() RouteHandler {
 			}
 
 			// check if room Id is part of map
-			if _, ok := rh.roomService.ShowMap()[roomID]; !ok  {
+			if _, ok := rh.roomService.ShowMap()[roomID]; !ok {
 				err := errs.NewBadRequestError("Room ID is invalid")
 				res(rw, err, err.Code)
 				return
@@ -91,15 +91,15 @@ func (rh RoomHandler) joinRoom() RouteHandler {
 				},
 			}
 
-			// upgrade http connection to websocket connection 
+			// upgrade http connection to websocket connection
 			ws, socketErr := upgrader.Upgrade(rw, r, nil)
-			
+
 			// check if there was an error in upgrading connection
 			if socketErr != nil {
 				rh.logger.Fatal("Web socket upgrade err: " + socketErr.Error())
 				err := errs.NewInternalServerError()
 				res(rw, err, err.Code)
-				return 
+				return
 			}
 
 			// defer the closeConnection method if websocket conection is closed intentionally or not
@@ -116,18 +116,18 @@ func (rh RoomHandler) joinRoom() RouteHandler {
 			// run broadcaster method concurrently before infinite for loop
 			go rh._broadcaster(&broadcast)
 
-			// run infinite for loop to detect messages 
+			// run infinite for loop to detect messages
 			for {
 				// variable to hold  broadcast Msg
 				var msg entities.BroadcastMsg
 
 				// read the next message sent by particpant
 				err := ws.ReadJSON(&msg.Message)
-				
+
 				// if there was an error disconnect user from room
 				if err != nil {
 					rh.logger.Info("Web socket json read err: " + err.Error())
-					break;
+					break
 				}
 
 				// set mesage client and room Id
