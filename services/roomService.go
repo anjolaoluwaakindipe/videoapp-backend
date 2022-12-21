@@ -7,6 +7,7 @@ import (
 
 	"github.com/anjolaoluwaakindipe/videoapp/entities"
 	"github.com/anjolaoluwaakindipe/videoapp/utils/logger"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -50,16 +51,19 @@ func (rs *RoomService) CreateRoom() string {
 }
 
 // InsertIntoRoom: creates a participant and add it into room structure
-func (rs *RoomService) InsertIntoRoom(roomID string, host bool, conn *websocket.Conn) {
+func (rs *RoomService) InsertIntoRoom(roomID string, host bool, conn *websocket.Conn) string {
 	rs.Mutex.Lock()
 	defer rs.Mutex.Unlock()
 
-	p := entities.RoomParticipant{Host: host, Conn: conn}
+	newParicticipantId := uuid.New()
+
+	p := entities.RoomParticipant{Host: host, Conn: conn, Id: newParicticipantId.String()}
 
 	rs.logger.Info("Inserting into Room with room Id: " + roomID)
 	rs.Map[roomID] = append(rs.Map[roomID], p)
 
-	rs.logger.Infof("Participants: %v", rs.Map[roomID])
+	rs.logger.Infof("Participants in %v: %v", roomID ,len(rs.Map[roomID]))
+	return newParicticipantId.String()
 }
 
 // CloseConnection closes a connection and removes the connection from a room

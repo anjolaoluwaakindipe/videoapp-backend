@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/anjolaoluwaakindipe/videoapp/dto/errs"
 	"github.com/anjolaoluwaakindipe/videoapp/dto/response"
@@ -17,10 +18,11 @@ type RoomHandler struct {
 	roomService services.RoomServiceInterface
 	logger      logger.Logger
 	broadcast   chan entities.BroadcastMsg
+	mutex       sync.Mutex
 }
 
 // handler: allows a user to create a room
-func (rh RoomHandler) CreateRoom() RouteHandler {
+func (rh *RoomHandler) CreateRoom() RouteHandler {
 	return RouteHandler{
 		Path:    "/room/create",
 		Methods: []string{http.MethodGet, http.MethodOptions},
@@ -41,8 +43,10 @@ func (rh RoomHandler) CreateRoom() RouteHandler {
 }
 
 // private method for starting broadcast
-func (rh RoomHandler) _broadcaster(broadcast *chan entities.BroadcastMsg) {
+func (rh *RoomHandler) _broadcaster(broadcast *chan entities.BroadcastMsg) {
+
 	for {
+		rh.mutex.Lock()
 		// wait for broadcast message
 		msg := <-*broadcast
 
@@ -57,11 +61,12 @@ func (rh RoomHandler) _broadcaster(broadcast *chan entities.BroadcastMsg) {
 				}
 			}
 		}
+		rh.mutex.Unlock()
 	}
 }
 
 // handler: allows a user to join a room
-func (rh RoomHandler) JoinRoom() RouteHandler {
+func (rh *RoomHandler) JoinRoom() RouteHandler {
 	return RouteHandler{
 		Path:    "/room/join",
 		Methods: []string{"GET"},
@@ -108,13 +113,13 @@ func (rh RoomHandler) JoinRoom() RouteHandler {
 			// TODO: make a participant a host
 
 			// insert websocket into connection room (via RoomService)
-			rh.roomService.InsertIntoRoom(roomID, false, ws)
+			participantId := rh.roomService.InsertIntoRoom(roomID, false, ws)
 
 			// make a broadcast channel
-			broadcast := make(chan entities.BroadcastMsg)
+			// broadcast := make(chan entities.BroadcastMsg)
 
 			// run broadcaster method concurrently before infinite for loop
-			go rh._broadcaster(&broadcast)
+			go rh._broadcaster(&rh.broadcast)
 
 			// run infinite for loop to detect messages
 			for {
@@ -123,10 +128,12 @@ func (rh RoomHandler) JoinRoom() RouteHandler {
 
 				// read the next message sent by particpant
 				err := ws.ReadJSON(&msg.Message)
+				
+				msg.Message["senderId"] = participantId
 
 				// if there was an error disconnect user from room
 				if err != nil {
-					rh.logger.Info("Web socket json read err: " + err.Error())
+					rh.logger.Info("Web socket json read err: ")
 					break
 				}
 
@@ -135,7 +142,7 @@ func (rh RoomHandler) JoinRoom() RouteHandler {
 				msg.RoomID = roomID
 
 				// broadcast participant's message to other participants through broad cast channel
-				broadcast <- msg
+				rh.broadcast <- msg
 			}
 		},
 	}
@@ -143,5 +150,5 @@ func (rh RoomHandler) JoinRoom() RouteHandler {
 
 // RoomHandler Constructor
 func NewRoomHandler(roomService services.RoomServiceInterface, logger logger.Logger) RoomHandler {
-	return RoomHandler{roomService: roomService, logger: logger}
+	return RoomHandler{roomService: roomService, logger: logger, broadcast: make(chan entities.BroadcastMsg)}
 }
